@@ -3,15 +3,18 @@
 
 // DropSpec
 
-$version = "1.0.2.0";
+$version = "1.0.2.2";
 $debug = 0;
 $soxdir = __DIR__;			// where to find sox binary
 							// __DIR__ = precompiled binary
 							// /opt/local/bin = macports binary
 $sox_basic = 0;				// if enabled, generate barebones specs
+$plldir = __DIR__;			// where to find parallel binary
+$force_parallel = 0;		// always execute with parallel
 $longtitle_threshold = 2;	// if files are n levels deep, add enclosing dirname to spec title
 $vscale = .66;				// vertical scale of generated spec (relative to overall screen height)
 $ratio = 1.1;				// aspect ratio of generated spec
+$limit = 200;				// dropped file limit
 
 // If the app is launched with the shift key held down, open this file in a text editor
 
@@ -98,7 +101,6 @@ if (!$files) {
 	sort($files);
 	}
 
-$limit = 200;
 if (count($files) > $limit) {
 	$result = exec("osascript -e \"display dialog \\\"Really process ".count($files)." files?\\\"\" 2>&1");
 	if (strpos($result,"canceled") !== false) {
@@ -109,18 +111,24 @@ if (count($files) > $limit) {
 
 // Make a tmp dir for the pngs
 
-if ($debug) {
-	$workdir = "/tmp/".md5(implode(".",$argv))."_".time();
-	} else {
-	$workdir = "/tmp/".md5(implode(".",$argv));
+$parentworkdir = "/tmp/dropspec/";
+
+if (!file_exists($parentworkdir)) {
+	mkdir($parentworkdir);
 	}
-	
+
+if ($debug) {
+	$workdir = $parentworkdir.md5(implode(".",$argv))."_".time();
+	} else {
+	$workdir = $parentworkdir.md5(implode(".",$argv));
+	}
+
 if (!file_exists($workdir)) {
 	mkdir($workdir);
 	}
 
 // Build commands for sox
-
+	
 $makecmd = array();
 $label = array();
 foreach ($files as $file) {
@@ -145,18 +153,28 @@ foreach ($files as $file) {
 // Execute sox commands in parallel
 // A better way would be to use pcntl_fork, but as it is not compiled in default osx php, this is the workaround
 
-if ($debug) {
-	echo implode("\n\n",$makecmd);
+if (count($files) < $limit && !$force_parallel) {
+	$makecmdstring = implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &";
+	} else {
+	$pfile = $workdir."/exec.sh";
+	file_put_contents($pfile, implode("\n",$makecmd));
+	$makecmdstring = $plldir."/parallel < ".$pfile." > /dev/null 2>&1 &";
 	}
 
-$makecmdstring = implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &";
-$arg_max = trim(exec("getconf ARG_MAX"));
-if (strlen($makecmdstring) > $arg_max) {
-	echo "\nALERT:ARG_MAX Exceeded|Sox command is longer than the bash limit. Try again with fewer files or enable sox_basic. (".strlen($makecmdstring)."/".$arg_max.")\n";
+// ARG_MAX exception
+
+if (strlen($makecmdstring) > trim(exec("getconf ARG_MAX"))) {
+	echo "\nALERT:ARG_MAX Exceeded|Sox command is longer than the bash limit. Try again with fewer files.\n";
 	die;
 	}
-exec($makecmdstring);
 
+// exec
+
+if ($debug) {
+	echo "\n".$makecmdstring."\n";
+	}
+exec($makecmdstring);
+	
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
 // Workaround is to loop over the dest dir repeatedly to check file count
 
