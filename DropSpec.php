@@ -3,12 +3,12 @@
 
 // DropSpec
 
-$version = "1.0.1.9";
-$debug = 1;
+$version = "1.0.2.0";
+$debug = 0;
 $soxdir = __DIR__;			// where to find sox binary
-								// __DIR__ = precompiled binary
-								// /opt/local/bin = macports binary
-$enable_resizing = 1;		// if disabled, use sox default image size
+							// __DIR__ = precompiled binary
+							// /opt/local/bin = macports binary
+$sox_basic = 0;				// if enabled, generate barebones specs
 $longtitle_threshold = 2;	// if files are n levels deep, add enclosing dirname to spec title
 $vscale = .66;				// vertical scale of generated spec (relative to overall screen height)
 $ratio = 1.1;				// aspect ratio of generated spec
@@ -30,7 +30,7 @@ $types = trim(exec($soxdir."/sox -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:"))
 // Generated specs are $percent of screen height tall with an aspect ratio of $ratio
 // beware sox can be unpredictable and actual size may vary
 
-if ($enable_resizing) {
+if (!$sox_basic) {
 
 	$resolution_string = exec("system_profiler SPDisplaysDataType | grep Resolution");
 	if (!$resolution_string) {
@@ -44,10 +44,6 @@ if ($enable_resizing) {
 
 	$sizeopts = "-x ".$width." -Y ".$height;
 
-	} else {
-	
-	$sizeopts = "";
-	
 	}
 
 if ($debug) {
@@ -126,22 +122,25 @@ if (!file_exists($workdir)) {
 // Build commands for sox
 
 $makecmd = array();
+$label = array();
 foreach ($files as $file) {
 	$hash = md5($file);
 	$img = $workdir."/".$hash.".png";
-	if ($deepest_file > $longtitle_threshold && $enable_resizing) {
+	if ($deepest_file > $longtitle_threshold) {
 		$title = implode("/",array_slice(explode("/",$file),-2,2));
 		} else {
 		$title = basename($file);
 		}
 	if (!file_exists($img)) {
-		$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
+		if ($sox_basic) {
+			$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram -o ".$img;
+			} else {
+			$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
+			}
 		}
 	$opencmd[] = $img;
-	echo "\n".basename($file);
+	$label[] = $title;
 	}
-	
-echo "\nBuilding specs...\n";
 
 // Execute sox commands in parallel
 // A better way would be to use pcntl_fork, but as it is not compiled in default osx php, this is the workaround
@@ -150,17 +149,33 @@ if ($debug) {
 	echo implode("\n\n",$makecmd);
 	}
 
-exec(implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &");
+$makecmdstring = implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &";
+$arg_max = trim(exec("getconf ARG_MAX"));
+if (strlen($makecmdstring) > $arg_max) {
+	echo "\nALERT:ARG_MAX Exceeded|Sox command is longer than the bash limit. Try again with fewer files or enable sox_basic. (".strlen($makecmdstring)."/".$arg_max.")\n";
+	die;
+	}
+exec($makecmdstring);
 
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
 // Workaround is to loop over the dest dir repeatedly to check file count
 
+array_unshift($label, "Spawning threads...");
+
 while (count(glob($workdir."/*.png")) < count($files)) {
+	
 	$count = count(glob($workdir."/*.png"));
+	
+	if ($label[$count]) {
+		echo "\n".$label[$count]."\n";
+		$label[$count] = 0;
+		}
+	
 	$total = count($files);
 	$percent = floor(($count/$total)*100);
 	echo "PROGRESS:".$percent."\n";
 	usleep(10000);
+	
 	}
 
 echo "PROGRESS:100\n";
