@@ -3,16 +3,16 @@
 
 // DropSpec
 
-$version = "1.0.2.2";
+$version = "1.0.2.4";
 $debug = 0;
 $soxdir = __DIR__;			// where to find sox binary
 							// __DIR__ = precompiled binary
 							// /opt/local/bin = macports binary
 $sox_basic = 0;				// if enabled, generate barebones specs
 $plldir = __DIR__;			// where to find parallel binary
-$force_parallel = 0;		// always execute with parallel
+$force_parallel = 1;		// always execute with parallel
 $longtitle_threshold = 2;	// if files are n levels deep, add enclosing dirname to spec title
-$vscale = .66;				// vertical scale of generated spec (relative to overall screen height)
+$vscale = .5;				// vertical scale of generated spec (relative to overall screen height)
 $ratio = 1.1;				// aspect ratio of generated spec
 $limit = 200;				// dropped file limit
 
@@ -95,7 +95,7 @@ foreach ($argv as $target) {
 	}
 
 if (!$files) {
-	echo "ALERT:No supported files dropped|Your sox binary can only support these filetypes: ".str_replace(" ",", ",$types)."\n";
+	echo "ALERT:No supported files dropped|".$soxdir."/sox supports these filetypes: ".str_replace(" ",", ",$types)."\n";
 	die;
 	} else {
 	sort($files);
@@ -192,8 +192,11 @@ while (count(glob($workdir."/*.png")) < count($files)) {
 	$total = count($files);
 	$percent = floor(($count/$total)*100);
 	echo "PROGRESS:".$percent."\n";
-	usleep(10000);
-	
+	if (count($files) < $limit) {
+		usleep(10000);
+		} else {
+		usleep(100000);
+		}
 	}
 
 echo "PROGRESS:100\n";
