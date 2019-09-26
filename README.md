@@ -18,3 +18,4 @@ Running DropSpec requires disabling Gatekeeper by running `sudo spctl --master-d
 
 https://github.com/duckquack/DropSpec/blob/master/CHANGELOG.md
 
+ 
