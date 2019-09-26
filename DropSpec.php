@@ -3,8 +3,8 @@
 
 // DropSpec
 
-$version = "1.0.1.8";
-$debug = 0;
+$version = "1.0.1.9";
+$debug = 1;
 $soxdir = __DIR__;			// where to find sox binary
 								// __DIR__ = precompiled binary
 								// /opt/local/bin = macports binary
@@ -135,7 +135,7 @@ foreach ($files as $file) {
 		$title = basename($file);
 		}
 	if (!file_exists($img)) {
-		$makecmd[] = $soxdir."/sox \"".$file."\" -n spectrogram ".$sizeopts." -t \"".addslashes($title)."\" -c \"DropSpec ".$version."\" -o ".$img;
+		$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
 		}
 	$opencmd[] = $img;
 	echo "\n".basename($file);
