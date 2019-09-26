@@ -3,8 +3,11 @@
 
 // DropSpec
 
-$version = "1.0.1.2";
+$version = "1.0.1.3";
 $debug = 0;
+$soxdir = __DIR__; // where to find sox binary
+					// __DIR__ = precompiled binary
+					// /opt/local/bin = macports binary
 
 $vscale = .66; // vertical scale of generated spec (relative to overall screen height)
 $ratio = 1.1; // aspect ratio of generated spec
@@ -104,7 +107,7 @@ foreach ($files as $file) {
 	$hash = md5($file);
 	$img = $workdir."/".$hash.".png";
 	if (!file_exists($img)) {
-		$makecmd[] = __DIR__."/sox \"".$file."\" -n spectrogram -x ".$width." -Y ".$height." -t \"".basename($file)."\" -c \"DropSpec ".$version."\" -o ".$img;
+		$makecmd[] = $soxdir."/sox \"".$file."\" -n spectrogram -x ".$width." -Y ".$height." -t \"".basename($file)."\" -c \"DropSpec ".$version."\" -o ".$img;
 		}
 	echo "\n".basename($file);
 	}
