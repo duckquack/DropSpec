@@ -3,7 +3,7 @@
 
 // DropSpec
 
-$version = "1.0.1.3";
+$version = "1.0.1.5";
 $debug = 0;
 $soxdir = __DIR__; // where to find sox binary
 					// __DIR__ = precompiled binary
@@ -21,6 +21,10 @@ if(exec(__DIR__."/keys") == 512) {
 	echo "QUITAPP\n";
 	die;
 	}
+
+// Detect files supported by sox binary
+
+$types = trim(exec($soxdir."/sox -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
 
 // Generated specs are $percent of screen height tall with an aspect ratio of $ratio
 // beware sox can be unpredictable and actual size may vary
@@ -56,7 +60,7 @@ $files = array();
 
 foreach ($argv as $target) {
 
-	$allowed = array("flac","mp3","wav","aif","aiff","m4a");
+	$allowed = explode(" ",$types);
 
 	if (is_dir($target)) {
 
@@ -76,7 +80,7 @@ foreach ($argv as $target) {
 
 if (!$files) {
 	if (!$from_finder) {
-		echo "ALERT:No files|No valid files were dropped\n";
+		echo "ALERT:No supported files dropped|Your sox binary can only support these filetypes: ".str_replace(" ",", ",$types)."\n";
 		}
 	die;
 	} else {
