@@ -3,12 +3,12 @@
 
 // DropSpec
 
-$version = "1.0.1.5";
+$version = "1.0.1.6";
 $debug = 0;
 $soxdir = __DIR__; // where to find sox binary
 					// __DIR__ = precompiled binary
 					// /opt/local/bin = macports binary
-
+$enable_resizing = 1; // if disabled, use sox default image size
 $vscale = .66; // vertical scale of generated spec (relative to overall screen height)
 $ratio = 1.1; // aspect ratio of generated spec
 
@@ -29,15 +29,25 @@ $types = trim(exec($soxdir."/sox -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:"))
 // Generated specs are $percent of screen height tall with an aspect ratio of $ratio
 // beware sox can be unpredictable and actual size may vary
 
-$resolution_string = exec("system_profiler SPDisplaysDataType | grep Resolution");
-if (!$resolution_string) {
-	echo "ALERT:No resolution|Can't determine screen resolution\n";
-	die;
-	}
-preg_match_all('!\d+!', $resolution_string, $matches);
+if ($enable_resizing) {
 
-$height = floor($matches[0][1]*$vscale);
-$width = floor($height*$ratio);
+	$resolution_string = exec("system_profiler SPDisplaysDataType | grep Resolution");
+	if (!$resolution_string) {
+		echo "ALERT:No resolution|Can't determine screen resolution\n";
+		die;
+		}
+	preg_match_all('!\d+!', $resolution_string, $matches);
+
+	$height = floor($matches[0][1]*$vscale);
+	$width = floor($height*$ratio);
+
+	$sizeopts = "-x ".$width." -Y ".$height;
+
+	} else {
+	
+	$sizeopts = "";
+	
+	}
 
 if ($debug) {
 	echo "\nOutput Resolution = ".$width."x".$height."\n";
@@ -111,7 +121,7 @@ foreach ($files as $file) {
 	$hash = md5($file);
 	$img = $workdir."/".$hash.".png";
 	if (!file_exists($img)) {
-		$makecmd[] = $soxdir."/sox \"".$file."\" -n spectrogram -x ".$width." -Y ".$height." -t \"".basename($file)."\" -c \"DropSpec ".$version."\" -o ".$img;
+		$makecmd[] = $soxdir."/sox \"".$file."\" -n spectrogram ".$sizeopts." -t \"".basename($file)."\" -c \"DropSpec ".$version."\" -o ".$img;
 		}
 	echo "\n".basename($file);
 	}
