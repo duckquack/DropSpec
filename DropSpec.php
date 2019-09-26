@@ -113,20 +113,24 @@ if (count($files) > $limit) {
 
 // Make a tmp dir for the pngs
 
-$workdir = "/tmp/".md5(implode(".",$argv));
-
+if ($debug) {
+	$workdir = "/tmp/".md5(implode(".",$argv))."_".time();
+	} else {
+	$workdir = "/tmp/".md5(implode(".",$argv));
+	}
+	
 if (!file_exists($workdir)) {
 	mkdir($workdir);
 	}
 
 // Build commands for sox
 
+$makecmd = array();
 foreach ($files as $file) {
-	$makecmd = array();
 	$hash = md5($file);
 	$img = $workdir."/".$hash.".png";
 	if ($deepest_file > $longtitle_threshold && $enable_resizing) {
-		echo $title = implode("/",array_slice(explode("/",$file),-2,2));
+		$title = implode("/",array_slice(explode("/",$file),-2,2));
 		} else {
 		$title = basename($file);
 		}
