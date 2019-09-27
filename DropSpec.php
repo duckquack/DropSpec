@@ -31,11 +31,6 @@ if (!@$p['soxbin']) {
 	$p['soxbin'] = __DIR__."/sox";
 	}
 
-if (!is_executable($p['soxbin'])) {
-	echo "\nALERT:Sox error|Error locating sox binary. Check preferences.\n";
-	die;
-	}
-
 $types = trim(exec($p['soxbin']." -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
 
 $sizeopts = "";
@@ -75,6 +70,11 @@ switch (@$argv[1]) {
 	}
 
 unset($argv[0]);
+
+if (!is_executable($p['soxbin'])) {
+	echo "\nALERT:Sox error|Error locating sox binary. Check preferences.\n";
+	die;
+	}
 
 $files = array();
 
