@@ -1,65 +1,74 @@
-#!/usr/bin/php
-<?
+<?php
 
 // DropSpec
 
-$version = "1.0.2.4";
-$debug = 0;
-$soxdir = __DIR__;			// where to find sox binary
-							// __DIR__ = precompiled binary
-							// /opt/local/bin = macports binary
-$sox_basic = 0;				// if enabled, generate barebones specs
-$plldir = __DIR__;			// where to find parallel binary
-$force_parallel = 1;		// always execute with parallel
-$longtitle_threshold = 2;	// if files are n levels deep, add enclosing dirname to spec title
-$vscale = .5;				// vertical scale of generated spec (relative to overall screen height)
-$ratio = 1.1;				// aspect ratio of generated spec
-$limit = 200;				// dropped file limit
+$version = file_get_contents(__DIR__."/current_version.txt");
 
-// If the app is launched with the shift key held down, open this file in a text editor
+// Load preferences
 
-echo "PROGRESS:0\n";
+$prefs_file = "/Users/".get_current_user()."/Library/Preferences/org.anatidae.DropSpec.php";
+if (!file_exists($prefs_file)) {
+	if (!copy(__DIR__."/prefs.php",$prefs_file)) {
+		echo "Error creating preferences file";
+		die;
+		}
+	}
+$p = unserialize(file_get_contents($prefs_file));
 
-if(exec(__DIR__."/keys") == 512) {
-	exec("open -t ".__FILE__);
-	echo "QUITAPP\n";
+// Create work dir
+	
+$workdir = "/tmp/DropSpec/";
+if (!file_exists($workdir)) {
+	mkdir($workdir);
+	}
+
+// Sox options
+
+if (!@$p['soxbin']) {
+	$p['soxbin'] = __DIR__."/sox";
+	}
+
+if (!is_executable($p['soxbin'])) {
+	echo "\nALERT:Sox error|Error locating sox binary. Check preferences.\n";
 	die;
 	}
 
-// Detect files supported by sox binary
+$types = trim(exec($p['soxbin']." -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
 
-$types = trim(exec($soxdir."/sox -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
+$sizeopts = "";
+if (@$p['x']) {
+	$sizeopts .= " -x ".$p['x'];
+	}
+if (@$p['y']) {
+	$sizeopts .= " -Y ".$p['y'];
+	}
 
-// Generated specs are $percent of screen height tall with an aspect ratio of $ratio
-// beware sox can be unpredictable and actual size may vary
+echo "PROGRESS:0\n";
 
-if (!$sox_basic) {
+// No files dropped
 
-	$resolution_string = exec("system_profiler SPDisplaysDataType | grep Resolution");
-	if (!$resolution_string) {
-		echo "ALERT:No resolution|Can't determine screen resolution\n";
+switch (@$argv[1]) {
+	case NULL:
+		// get path from the frontmost finder window
+		echo "\nGathering path from current Finder context...\n";
+		$argv[1] = exec("osascript -e 'tell application \"Finder\" to get the POSIX path of (target of front window as alias)'");
+		break;
+	case "Preferences...":
+		exec("php ".__DIR__."/DropSpecPrefs.php");
 		die;
-		}
-	preg_match_all('!\d+!', $resolution_string, $matches);
-
-	$height = floor($matches[0][1]*$vscale);
-	$width = floor($height*$ratio);
-
-	$sizeopts = "-x ".$width." -Y ".$height;
-
-	}
-
-if ($debug) {
-	echo "\nOutput Resolution = ".$width."x".$height."\n";
-	}
-
-// If no files are dragged, use the current Finder context
-
-$from_finder=0;
-if (!@$argv[1]) {
-	echo "\nGathering path from current Finder context...\n";
-	$argv[1] = exec("osascript -e 'tell application \"Finder\" to get the POSIX path of (target of front window as alias)'");
-	$from_finder=1;
+	case "Check for Updates...":
+		$curr_version = file_get_contents("https://raw.githubusercontent.com/duckquack/DropSpec/master/current_version.txt");
+		if ($curr_version > $version) {
+			if(askMulti("A new version of DropSpec is available", array("Skip","Download")) == 1) {
+				exec("open https://github.com/duckquack/DropSpec");
+				echo "QUITAPP\n";
+				} else {
+				die;
+				}
+			} else {
+			alert($version." is the latest version","Up-to-date");
+			die;
+			}
 	}
 
 unset($argv[0]);
@@ -95,13 +104,13 @@ foreach ($argv as $target) {
 	}
 
 if (!$files) {
-	echo "ALERT:No supported files dropped|".$soxdir."/sox supports these filetypes: ".str_replace(" ",", ",$types)."\n";
+	echo "ALERT:No supported files dropped|".$p['soxbin']." supports these filetypes: ".str_replace(" ",", ",$types)."\n";
 	die;
 	} else {
 	sort($files);
 	}
 
-if (count($files) > $limit) {
+if (count($files) > $p['limit']) {
 	$result = exec("osascript -e \"display dialog \\\"Really process ".count($files)." files?\\\"\" 2>&1");
 	if (strpos($result,"canceled") !== false) {
 		echo "\nUser Cancelled\n";
@@ -117,11 +126,7 @@ if (!file_exists($parentworkdir)) {
 	mkdir($parentworkdir);
 	}
 
-if ($debug) {
-	$workdir = $parentworkdir.md5(implode(".",$argv))."_".time();
-	} else {
-	$workdir = $parentworkdir.md5(implode(".",$argv));
-	}
+$workdir = $parentworkdir.md5(implode(".",$argv));
 
 if (!file_exists($workdir)) {
 	mkdir($workdir);
@@ -140,11 +145,7 @@ foreach ($files as $file) {
 		$title = basename($file);
 		}
 	if (!file_exists($img)) {
-		if ($sox_basic) {
-			$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram -o ".$img;
-			} else {
-			$makecmd[] = $soxdir."/sox ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
-			}
+		$makecmd[] = $p['soxbin']." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
 		}
 	$opencmd[] = $img;
 	$label[] = $title;
@@ -153,7 +154,7 @@ foreach ($files as $file) {
 // Execute sox commands in parallel
 // A better way would be to use pcntl_fork, but as it is not compiled in default osx php, this is the workaround
 
-if (count($files) < $limit && !$force_parallel) {
+if (count($files) < $p['limit'] && !$force_parallel) {
 	$makecmdstring = implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &";
 	} else {
 	$pfile = $workdir."/exec.sh";
@@ -170,9 +171,6 @@ if (strlen($makecmdstring) > trim(exec("getconf ARG_MAX"))) {
 
 // exec
 
-if ($debug) {
-	echo "\n".$makecmdstring."\n";
-	}
 exec($makecmdstring);
 	
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
@@ -192,7 +190,7 @@ while (count(glob($workdir."/*.png")) < count($files)) {
 	$total = count($files);
 	$percent = floor(($count/$total)*100);
 	echo "PROGRESS:".$percent."\n";
-	if (count($files) < $limit) {
+	if (count($files) < $p['limit']) {
 		usleep(10000);
 		} else {
 		usleep(100000);
@@ -201,11 +199,12 @@ while (count(glob($workdir."/*.png")) < count($files)) {
 
 echo "PROGRESS:100\n";
 
-echo "\nOpening...\n";
+if ($p['postflight'] == 1) {
+	echo "\nOpening...\n";
+	exec("qlmanage -p ".implode(" ",$opencmd)." > /dev/null 2>&1");
+	}
 
-exec("qlmanage -p ".implode(" ",$opencmd)." > /dev/null 2>&1");
-
-if (!$debug) {
+if (!$p['stay_open']) {
 	echo "QUITAPP\n";
 	}
 
