@@ -4,6 +4,14 @@
 
 $version = file_get_contents(__DIR__."/current_version.txt");
 
+// Functions
+
+function askMulti($string, $buttons) {
+	$buttonstring = "buttons {\\\"".implode("\\\", \\\"",$buttons)."\\\"} default button ".count($buttons);
+	$result = exec("osascript -e \"display dialog \\\"".$string."\\\" ".$buttonstring."\" | cut -f2 -d':'");
+	return array_search($result,$buttons);
+	}
+
 // Load preferences
 
 $prefs_file = "/Users/".get_current_user()."/Library/Preferences/org.anatidae.DropSpec.php";
@@ -15,12 +23,7 @@ if (!file_exists($prefs_file)) {
 	}
 $p = unserialize(file_get_contents($prefs_file));
 
-// Create work dir
-	
-$workdir = "/tmp/DropSpec/";
-if (!file_exists($workdir)) {
-	mkdir($workdir);
-	}
+$longtitle_threshold = 2;
 
 // Sox options
 
@@ -66,7 +69,7 @@ switch (@$argv[1]) {
 				die;
 				}
 			} else {
-			alert($version." is the latest version","Up-to-date");
+			echo "\nALERT:Up-to-date|".$version." is the latest version.\n";
 			die;
 			}
 	}
@@ -127,9 +130,13 @@ if (!file_exists($parentworkdir)) {
 	}
 
 $workdir = $parentworkdir.md5(implode(".",$argv));
+$lockdir = $parentworkdir.md5(implode(".",$argv))."_".time();
 
 if (!file_exists($workdir)) {
 	mkdir($workdir);
+	}
+if (!file_exists($lockdir)) {
+	mkdir($lockdir);
 	}
 
 // Build commands for sox
@@ -137,37 +144,34 @@ if (!file_exists($workdir)) {
 $makecmd = array();
 $label = array();
 foreach ($files as $file) {
-	$hash = md5($file);
-	$img = $workdir."/".$hash.".png";
 	if ($deepest_file > $longtitle_threshold) {
 		$title = implode("/",array_slice(explode("/",$file),-2,2));
 		} else {
 		$title = basename($file);
 		}
-	if (!file_exists($img)) {
-		$makecmd[] = $p['soxbin']." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".$img;
+	$hash = md5($file);
+	$lockfile = $lockdir."/".$hash.".lock";
+	if ($p['destination'] == 0) {
+		$img = $workdir."/".$hash.".png";
+		} else {
+		$img = dirname($file)."/specs/".pathinfo($file,PATHINFO_FILENAME).".png";
+		if (!file_exists(dirname($img))) {
+			mkdir(dirname($img));
+			}
 		}
-	$opencmd[] = $img;
+	if (!file_exists($img)) {
+		$makecmd[] = $p['soxbin']." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".escapeshellarg($img)."; touch ".escapeshellarg($lockfile);
+		}
+	$opencmd[] = escapeshellarg($img);
 	$label[] = $title;
 	}
 
 // Execute sox commands in parallel
 // A better way would be to use pcntl_fork, but as it is not compiled in default osx php, this is the workaround
 
-if (count($files) < $p['limit'] && !$force_parallel) {
-	$makecmdstring = implode(" > /dev/null 2>&1 & ",$makecmd)." > /dev/null 2>&1 &";
-	} else {
-	$pfile = $workdir."/exec.sh";
-	file_put_contents($pfile, implode("\n",$makecmd));
-	$makecmdstring = $plldir."/parallel < ".$pfile." > /dev/null 2>&1 &";
-	}
-
-// ARG_MAX exception
-
-if (strlen($makecmdstring) > trim(exec("getconf ARG_MAX"))) {
-	echo "\nALERT:ARG_MAX Exceeded|Sox command is longer than the bash limit. Try again with fewer files.\n";
-	die;
-	}
+$pfile = $workdir."/exec.sh";
+file_put_contents($pfile, implode("\n",$makecmd));
+$makecmdstring = __DIR__."/parallel < ".$pfile." > /dev/null 2>&1 &";
 
 // exec
 
@@ -178,9 +182,9 @@ exec($makecmdstring);
 
 array_unshift($label, "Spawning threads...");
 
-while (count(glob($workdir."/*.png")) < count($files)) {
+while (count(glob($lockdir."/*.lock")) < count($files)) {
 	
-	$count = count(glob($workdir."/*.png"));
+	$count = count(glob($lockdir."/*.lock"));
 	
 	if ($label[$count]) {
 		echo "\n".$label[$count]."\n";

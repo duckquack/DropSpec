@@ -2,7 +2,7 @@
 
 # DropSpec
 
-**DropSpec** is a tool for generating spectograms on macOS.
+**DropSpec** is a tool for generating [sox](https://sourceforge.net/projects/sox/) spectograms on macOS.
 
 * **⇩ [Download DropSpec 1.1.0](https://github.com/duckquack/DropSpec/raw/master/DropSpec.app.zip)**
 
