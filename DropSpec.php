@@ -31,7 +31,7 @@ if (!@$p['soxbin']) {
 	$p['soxbin'] = __DIR__."/sox";
 	}
 
-$types = trim(exec($p['soxbin']." -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
+$types = trim(exec(escapeshellarg($p['soxbin'])." -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
 
 $sizeopts = "";
 if (@$p['x']) {
@@ -160,7 +160,7 @@ foreach ($files as $file) {
 			}
 		}
 	if (!file_exists($img)) {
-		$makecmd[] = $p['soxbin']." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".escapeshellarg($img)."; touch ".escapeshellarg($lockfile);
+		$makecmd[] = escapeshellarg($p['soxbin'])." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".escapeshellarg($img)."; touch ".escapeshellarg($lockfile);
 		} else {
 		$makecmd[] = "touch ".escapeshellarg($lockfile);
 		}
@@ -174,7 +174,7 @@ foreach ($files as $file) {
 $pfile = $workdir."/exec.sh";
 $log = $workdir."/log_".time().".txt";
 file_put_contents($pfile, implode("\n",$makecmd));
-exec(__DIR__."/parallel < ".$pfile." >> ".$log." 2>&1 &");
+exec(escapeshellarg(__DIR__."/parallel")." < ".$pfile." >> ".$log." 2>&1 &");
 	
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
 // Workaround is to loop over the lock dir repeatedly to check file count
