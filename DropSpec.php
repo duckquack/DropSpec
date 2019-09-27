@@ -80,13 +80,13 @@ $files = array();
 
 // Build list of valid dropped files
 
+$deepest_file = 0;
+
 foreach ($argv as $target) {
 
 	$allowed = explode(" ",$types);
 
 	if (is_dir($target)) {
-
-		$deepest_file = 0;
 
 		$it = new RecursiveDirectoryIterator($target);
 		foreach(new RecursiveIteratorIterator($it) as $file) {
@@ -130,7 +130,7 @@ if (!file_exists($parentworkdir)) {
 	}
 
 $workdir = $parentworkdir.md5(implode(".",$argv));
-$lockdir = $parentworkdir.md5(implode(".",$argv))."_".time();
+$lockdir = $workdir."/".time();
 
 if (!file_exists($workdir)) {
 	mkdir($workdir);
@@ -161,8 +161,10 @@ foreach ($files as $file) {
 		}
 	if (!file_exists($img)) {
 		$makecmd[] = $p['soxbin']." ".escapeshellarg($file)." -n spectrogram ".$sizeopts." -t ".escapeshellarg($title)." -c \"DropSpec ".$version."\" -o ".escapeshellarg($img)."; touch ".escapeshellarg($lockfile);
+		} else {
+		$makecmd[] = "touch ".escapeshellarg($lockfile);
 		}
-	$opencmd[] = escapeshellarg($img);
+	$opencmd[] = $img;
 	$label[] = $title;
 	}
 
@@ -170,15 +172,12 @@ foreach ($files as $file) {
 // A better way would be to use pcntl_fork, but as it is not compiled in default osx php, this is the workaround
 
 $pfile = $workdir."/exec.sh";
+$log = $workdir."/log_".time().".txt";
 file_put_contents($pfile, implode("\n",$makecmd));
-$makecmdstring = __DIR__."/parallel < ".$pfile." > /dev/null 2>&1 &";
-
-// exec
-
-exec($makecmdstring);
+exec(__DIR__."/parallel < ".$pfile." >> ".$log." 2>&1 &");
 	
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
-// Workaround is to loop over the dest dir repeatedly to check file count
+// Workaround is to loop over the lock dir repeatedly to check file count
 
 array_unshift($label, "Spawning threads...");
 
@@ -194,18 +193,17 @@ while (count(glob($lockdir."/*.lock")) < count($files)) {
 	$total = count($files);
 	$percent = floor(($count/$total)*100);
 	echo "PROGRESS:".$percent."\n";
-	if (count($files) < $p['limit']) {
-		usleep(10000);
-		} else {
-		usleep(100000);
-		}
+
 	}
 
 echo "PROGRESS:100\n";
 
+if (@filesize($log)) { echo file_get_contents($log); }
+
 if ($p['postflight'] == 1) {
 	echo "\nOpening...\n";
-	exec("qlmanage -p ".implode(" ",$opencmd)." > /dev/null 2>&1");
+	foreach ($opencmd as $file) { if (file_exists($file)) { $openme[] = escapeshellarg($file); } }
+	if (@$openme) { exec("qlmanage -p ".implode(" ",@$openme)." > /dev/null 2>&1"); } else { echo "No images generated."; }
 	}
 
 if (!$p['stay_open']) {
