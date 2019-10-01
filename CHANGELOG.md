@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [1.1.2.1]
+- Finder integration preference
+
 ## [1.1.2]
 - Fixed a perl interpreter pathname bug
 
