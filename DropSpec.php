@@ -28,8 +28,9 @@ $longtitle_threshold = 2;
 // Sox options
 
 if (!@$p['soxbin']) {
-	$p['soxbin'] = __DIR__."/sox";
+	$p['soxbin'] = __DIR__."/bin/sox";
 	}
+$p['pllbin'] = __DIR__."/bin/parallel";
 
 $types = trim(exec(escapeshellarg($p['soxbin'])." -h | grep 'AUDIO FILE FORMATS' | cut -f2 -d:")); 
 
@@ -47,9 +48,14 @@ echo "PROGRESS:0\n";
 
 switch (@$argv[1]) {
 	case NULL:
-		// get path from the frontmost finder window
-		echo "\nGathering path from current Finder context...\n";
-		$argv[1] = exec("osascript -e 'tell application \"Finder\" to get the POSIX path of (target of front window as alias)'");
+		if ($p['finder']) {
+			// get path from the frontmost finder window
+			echo "\nGathering path from current Finder context...\n";
+			$argv[1] = exec("osascript -e 'tell application \"Finder\" to get the POSIX path of (target of front window as alias)'");
+			} else {
+			echo "No input";
+			die;
+			}
 		break;
 	case "Preferences...":
 		exec("php ".__DIR__."/DropSpecPrefs.php");
@@ -178,7 +184,7 @@ foreach ($files as $file) {
 $pfile = $workdir."/exec.sh";
 $log = $workdir."/log_".time().".txt";
 file_put_contents($pfile, implode("\n",$makecmd));
-exec(escapeshellarg(__DIR__."/parallel")." < ".$pfile." >> ".$log." 2>&1 &");
+exec(escapeshellarg($p['pllbin'])." < ".$pfile." >> ".$log." 2>&1 &");
 	
 // We need to update the progressbar, but without pcntl_fork we have no indication of command completion
 // Workaround is to loop over the lock dir repeatedly to check file count

@@ -13,7 +13,7 @@ function makeWindowString($p, $strings) {
 	soxbin.type = textfield
 	soxbin.label = Sox binary (leave blank for bundled)
 	soxbin.default = ".$p['soxbin']."
-	soxbin.width = 200
+	soxbin.width = 300
 	
 	# X
 	x.type = textfield
@@ -26,7 +26,7 @@ function makeWindowString($p, $strings) {
 	y.label = Y dimension
 	y.default = ".$p['y']."
 	y.x = 120
-	y.y = 278
+	y.y = 316
 	y.width = 80
 	
 	# Destination
@@ -50,10 +50,15 @@ function makeWindowString($p, $strings) {
 	postflight.option = ".$strings[1][0]."
 	postflight.option = ".$strings[1][1]."
 	postflight.default = ".$strings[1][$p['postflight']]."
+
+	# Finder integration
+	finder.type = checkbox
+	finder.label = Finder integration
+	finder.default = ".$p['finder']."
 	
 	# Stay open?
 	stay_open.type = checkbox
-	stay_open.label = Stay open
+	stay_open.label = Stay open 
 	stay_open.default = ".$p['stay_open']."
 	
 	# Buttons
@@ -80,7 +85,7 @@ $strings[] = array("Do nothing","Quicklook");
 
 // Launch Pashua and parse results
 
-$path = __DIR__."/Pashua.app/Contents/MacOS/Pashua";
+$path = __DIR__."/bin/Pashua.app/Contents/MacOS/Pashua";
 $raw = shell_exec("echo ".escapeshellarg(makeWindowString($p, $strings))." | ".escapeshellarg($path)." - ");
 $result = array();
 foreach (explode("\n", $raw) as $line) {
