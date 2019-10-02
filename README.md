@@ -6,9 +6,17 @@
 
 #### [⇩ Download DropSpec 1.1.2.1](https://www.github.com/duckquack/DropSpec/raw/master/DropSpec.app.zip) ([Changelog](CHANGELOG.md))
 
-## Screenshot
+## Features
+
+* Scans recursively
+* Multithreaded
+* Optionally discovers frontmost Finder window path
+* Destination option
+
+## Screenshots
 
 <img src="screenshot_1.png" width="1428">
+<img src="screenshot_2.png" width="402">
 
 ## Notes
 
